@@ -8,10 +8,6 @@ inputs:
     description: 'Space to be left free on the root filesystem, in Megabytes.'
     required: false
     default: '1024'
-  temp-reserve-mb:
-    description: 'Space to be left free on the temp filesystem (/mnt), in Megabytes.'
-    required: false
-    default: '100'
   swap-size-mb:
     description: 'Swap space to create, in Megabytes.'
     required: false
@@ -20,7 +16,7 @@ inputs:
     description: |
       Create the LVM disk images as sparse files, making the space required for the LVM image files *appear* unused on the
       hosting volumes until actually allocated. Use with care, this can lead to surprising out-of-disk-space situations.
-      You should prefer adjusting root-reserve-mb/temp-reserve-mb over using this option.
+      You should prefer adjusting root-reserve-mb over using this option.
     required: false
     default: 'false'
   build-mount-path:
@@ -87,7 +83,6 @@ runs:
           echo "Arguments:"
           echo
           echo "  Root reserve:      ${{ inputs.root-reserve-mb }} MiB"
-          echo "  Temp reserve:      ${{ inputs.temp-reserve-mb }} MiB"
           echo "  Swap space:        ${{ inputs.swap-size-mb }} MiB"
           echo "  Overprovision LVM: ${{ inputs.overprovision-lvm }}"
           echo "  Mount path:        ${BUILD_MOUNT_PATH}"
@@ -155,18 +150,8 @@ runs:
           export ROOT_LOOP_DEV=$(sudo losetup --find --show "${{ inputs.pv-loop-path }}")
           sudo pvcreate -f "${ROOT_LOOP_DEV}"
 
-          # create pv on temp disk
-          echo "  Creating LVM PV on temp fs."
-          TMP_RESERVE_KB=$(expr ${{ inputs.temp-reserve-mb }} \* 1024)
-          TMP_FREE_KB=$(df --block-size=1024 --output=avail /mnt | tail -1)
-          TMP_LVM_SIZE_KB=$(expr $TMP_FREE_KB - $TMP_RESERVE_KB)
-          TMP_LVM_SIZE_BYTES=$(expr $TMP_LVM_SIZE_KB \* 1024)
-          sudo touch "${{ inputs.tmp-pv-loop-path }}" && sudo fallocate -z -l "${TMP_LVM_SIZE_BYTES}" "${{ inputs.tmp-pv-loop-path }}"
-          export TMP_LOOP_DEV=$(sudo losetup --find --show "${{ inputs.tmp-pv-loop-path }}")
-          sudo pvcreate -f "${TMP_LOOP_DEV}"
-
           # create volume group from these pvs
-          sudo vgcreate "${VG_NAME}" "${TMP_LOOP_DEV}" "${ROOT_LOOP_DEV}"
+          sudo vgcreate "${VG_NAME}" "${ROOT_LOOP_DEV}"
 
           echo "Recreating swap"
           # create and activate swap
