@@ -1,4 +1,4 @@
-name: 'Maximize build disk space'
+name: 'Maximize build disk space (no temp partition)'
 description: 'Maximize the available disk space for your build job'
 branding:
   icon: 'crop'
